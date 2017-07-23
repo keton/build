@@ -180,6 +180,8 @@ create_rootfs_cache()
 
 		# stage: add armbian repository and install key
 		echo "deb http://apt.armbian.com $RELEASE main utils ${RELEASE}-desktop" > $CACHEDIR/$SDCARD/etc/apt/sources.list.d/armbian.list
+		#dirty hack for stretch to work untiull it has it's own repositories
+		[[ $RELEASE == stretch ]] && echo "deb http://apt.armbian.com jessie main utils jessie-desktop" > $CACHEDIR/$SDCARD/etc/apt/sources.list.d/armbian.list
 
 		cp $SRC/lib/config/armbian.key $CACHEDIR/$SDCARD
 		eval 'chroot $CACHEDIR/$SDCARD /bin/bash -c "cat armbian.key | apt-key add -"' \

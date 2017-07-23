@@ -219,7 +219,19 @@ install_distribution_specific()
 		;;
 
 	stretch)
-	;;
+		# we don't enable root login by default, user with sudo rights is added in customization template
+		# echo "PermitRootLogin yes" >> $CACHEDIR/$SDCARD/etc/ssh/sshd_config
+
+		mkdir -p $CACHEDIR/$SDCARD/etc/NetworkManager/dispatcher.d/
+		cat <<-'EOF' > $CACHEDIR/$SDCARD/etc/NetworkManager/dispatcher.d/99disable-power-management
+		#!/bin/sh
+		case "$2" in
+			up) /sbin/iwconfig $1 power off || true ;;
+			down) /sbin/iwconfig $1 power on || true ;;
+		esac
+		EOF
+		chmod 755 $CACHEDIR/$SDCARD/etc/NetworkManager/dispatcher.d/99disable-power-management
+		;;
 	esac
 }
 
