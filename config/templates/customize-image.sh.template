@@ -24,9 +24,78 @@ Main() {
 			;;
 		stretch)
 			# your code here
+			InitialConfig
+			EnableIli9341FB
+			Debloat
 		;;
 	esac
 } # Main
+
+InitialConfig(){
+	#This will perform initial configuration by disabling root login and adding default user account
+
+	#disable root login
+	passwd -l root
+	#mark that accounts have been configured
+	rm /root/.not_logged_in_yet
+
+	#apply locale settings
+	locale-gen "en_US.UTF-8"
+	locale-gen "C"
+	export LANG=C LC_ALL="en_US.UTF-8"
+
+	#add default user account
+	echo "" | adduser --disabled-password pi
+	echo pi:bananapi | chpasswd
+	usermod -a -G video,input,tty,audio,sudo pi
+
+}
+
+EnableIli9341FB(){
+	#This will enable ILI9341 framebuffer at boot using FBTFT and initrd
+
+	#add overlays that activate spi and i2c
+	echo "overlays=spi0 spi-add-cs1 i2c1" >> /boot/armbianEnv.txt
+
+	#provide extra kernel arguments to enable fb1 as boot console
+	echo "extraargs=fbcon=map:10 splash quiet loglevel=2 plymouth.ignore-serial-consoles" >> /boot/armbianEnv.txt
+
+	#add required configuration to initrd build tools
+	cat > /etc/initramfs-tools/modules <<- EOF
+	# List of modules that you want to include in your initramfs.
+	# They will be loaded at boot time in the order below.
+	#
+	# Syntax:  module_name [args ...]
+	#
+	# You must run update-initramfs(8) to effect this change.
+	#
+	spidev
+	fbtft
+	fbtft_device custom busnum=32766 cs=1 name=fb_ili9341 gpios=reset:244,dc:226 speed=20000000 rotate=90 bgr=1 fps=30
+	fb_ili9341
+	EOF
+
+	cat > /etc/initramfs-tools/conf.d/fb1 <<- EOF
+	export FRAMEBUFFER=/dev/fb1
+	EOF
+
+	#install plymouth splash screen and pygame required for embedded app
+	apt-get --yes --force-yes --allow-unauthenticated install fbi python-pygame plymouth plymouth-themes
+
+	#regenerate initrd and activate choosen bootsplash
+	/usr/sbin/plymouth-set-default-theme -R solar
+
+	#move autospawning console from ILI9341 to internal framebuffer
+	mv "/etc/systemd/system/getty.target.wants/getty@tty1.service" "/etc/systemd/system/getty.target.wants/getty@tty2.service"
+}
+
+Debloat(){
+	#Remove packages that are not needed
+	BLOAT_PKGS="bc bind9-host bluez build-essential cpp curl evtest gcc g++ gnupg hddtemp htop ifenslave iotop iozone3 iperf3 lirc m4 make mysql-common parted patch pciutils rsync screen stress sysbench tasksel vlan wget"
+	apt purge --yes $BLOAT_PKGS
+	apt autoremove --yes
+}
+
 
 InstallOpenMediaVault() {
 	# use this routine to create a Debian Jessie based fully functional 
